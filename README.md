@@ -56,7 +56,7 @@ This repository is built from scratch, step by step, in a 4-hour tutorial:
 
 **[The Only Guide You Need to Build Claude Skills and MCP Servers ▶](https://www.youtube.com/watch?v=YKIUt9ytxIE)**
 
-It walks through the entire `core -> CLI -> MCP -> Skill` pattern, including the local and remote MCP adapters and Clerk-protected remote deployment.
+It walks through the entire `core → CLI → MCP → Skill` pattern, including the local and remote MCP adapters and Clerk-protected remote deployment.
 
 ## What Is MessageSend?
 
@@ -88,18 +88,18 @@ Start with the section that matches your goal:
 
 | Package              | Role                                           |
 | -------------------- | ---------------------------------------------- |
-| `packages/core`      | Shared schemas and operations.                 |
-| `packages/cli`       | Human/script CLI adapter.                      |
+| `packages/core`      | Shared Zod schemas and operation logic.        |
+| `packages/cli`       | Human/script CLI adapter (Commander-based).    |
 | `packages/local-mcp` | Local MCP stdio server adapter for AI clients. |
-| `apps/remote-mcp`    | Remote MCP HTTP adapter for deployed clients.  |
-| `skills/messagesend` | Agent-facing usage instructions.               |
+| `apps/remote-mcp`    | Remote MCP HTTP adapter (Hono + Clerk OAuth).  |
+| `skills/messagesend` | Agent-facing usage instructions (SKILL.md).    |
 
 ## Prerequisites
 
-- A Telegram bot token.
-- Node.js for published package usage.
-- Bun if you want to run or adapt this repository locally.
-- A Node-compatible MCP client if you want to connect the local MCP server.
+- A Telegram bot token (get one from [@BotFather](https://t.me/BotFather)).
+- **Node.js 22+** for published package usage.
+- **Bun** if you want to run or adapt this repository locally.
+- A Node-compatible MCP client to connect the local MCP server (e.g., Claude desktop, OpenCode).
 
 ## Use MessageSend
 
@@ -119,16 +119,10 @@ Configure your Telegram bot token:
 messagesend init --telegram-bot-token "<bot-token>"
 ```
 
-Send a message:
+Send a message (output is always JSON):
 
 ```bash
 messagesend telegram "<chat-id>" "Hello from MessageSend"
-```
-
-Use JSON output when scripting or when an agent needs to parse the result:
-
-```bash
-messagesend telegram "<chat-id>" "Hello from MessageSend" --json
 ```
 
 Expected JSON output:
@@ -141,7 +135,9 @@ Expected JSON output:
 }
 ```
 
-CLI config is stored at `~/.config/messagesend/config.json`.
+The CLI config file is stored at `~/.config/messagesend/config.json` with restricted permissions (`0o600`).
+
+You can also set the `TELEGRAM_BOT_TOKEN` environment variable to bypass the config file.
 
 ### Local MCP
 
@@ -183,11 +179,11 @@ If your MCP client can execute npm packages directly, skip the global install:
 }
 ```
 
-Available MCP tools:
+The MCP server registers one tool:
 
-- `telegram`: Accepts `{ chatId, message }` and returns `{ ok, chatId, messageId }`.
+- **`telegram`** — accepts `{ chatId: string, message: string }`, returns `{ ok, chatId, messageId }`.
 
-Do not include Telegram bot tokens in MCP tool arguments. The local MCP server reads the token from `TELEGRAM_BOT_TOKEN`.
+Do **not** include the Telegram bot token in MCP tool arguments. The local MCP server reads the token from the `TELEGRAM_BOT_TOKEN` environment variable only.
 
 ### Skill
 
@@ -197,28 +193,31 @@ Install the MessageSend Skill with your skill manager:
 npx skills add https://github.com/NoorAbdullah02/MessageSend/tree/main/skills/messagesend
 ```
 
-The Skill tells agents when to use the MCP `telegram` tool, when to fall back to the CLI, why `--json` matters for parsing, and why `@noor-dev/messagesend-core` is only an implementation detail.
+The Skill tells agents when to use the MCP `telegram` tool, when to fall back to the CLI, and why `@noor-dev/messagesend-core` is only an implementation detail.
 
 CLI fallback example from the Skill:
 
 ```bash
 messagesend init --telegram-bot-token "<bot-token>"
-messagesend telegram "<chat-id>" "Hello from MessageSend" --json
+messagesend telegram "<chat-id>" "Hello from MessageSend"
 ```
 
 ### Remote MCP
 
 This repository includes a remote MCP HTTP server, but MessageSend does not provide a hosted public endpoint.
 
-For remote MCP usage, deploy your own copy of `apps/remote-mcp`. The server exposes `POST /:botToken/mcp`, where `botToken` is the URL-encoded Telegram bot token for that request.
+For remote MCP usage, deploy your own copy of `apps/remote-mcp`. The server exposes:
 
-The remote MCP app can be protected with Clerk OAuth while keeping the Telegram bot token in the MCP URL:
+- `POST /:botToken/mcp` — The main MCP endpoint. `botToken` is the URL-encoded Telegram bot token.
+- `GET /.well-known/oauth-protected-resource/:botToken/mcp` — Clerk OAuth protected resource metadata.
+
+The remote MCP app can be protected with **Clerk OAuth** while keeping the Telegram bot token in the MCP URL:
 
 ```text
 https://your-messagesend-host.example.com/<telegram-bot-token>/mcp
 ```
 
-Treat this URL like a secret. The URL still contains the Telegram bot token. If it is exposed, revoke and rotate the token with BotFather.
+**Treat this URL like a secret.** The URL contains the Telegram bot token. If it is exposed, revoke and rotate the token with BotFather.
 
 Set Clerk environment variables before starting the remote MCP app:
 
@@ -231,10 +230,6 @@ bun run dev:remote-mcp
 For MCP OAuth clients, unauthenticated requests receive `401 Unauthorized` with `WWW-Authenticate` metadata. The MCP client is responsible for opening the Clerk login flow.
 
 In the Clerk Dashboard, enable **Dynamic client registration** for OAuth applications before testing with MCP clients that require automatic OAuth client registration.
-
-This tutorial step demonstrates OAuth-protected MCP access. Clerk does not manage the Telegram bot token in this example; the token still comes from the URL.
-
-ChatGPT web and Claude web support can vary by current MCP OAuth client behavior.
 
 **Claude web** connects out of the box: it performs OAuth Dynamic Client Registration automatically, so no manual OAuth client setup is needed.
 
@@ -278,17 +273,17 @@ Use this path when MessageSend is a starting point for something else. The Teleg
 Keep the dependency direction:
 
 ```text
-packages/core        -> shared schemas and operations
-packages/cli         -> command-line adapter backed by core
-packages/local-mcp   -> local MCP stdio adapter backed by core
-apps/remote-mcp      -> remote MCP HTTP adapter backed by core
-packages/skills/...  -> agent-facing instructions and fallback guidance
+packages/core        → shared schemas and operations
+packages/cli         → command-line adapter backed by core
+packages/local-mcp   → local MCP stdio adapter backed by core
+apps/remote-mcp      → remote MCP HTTP adapter backed by core
+skills/messagesend   → agent-facing instructions and fallback guidance
 ```
 
 Keep business logic in `packages/core`. Adapters should only parse inputs, read credentials from the right place, call core, and format results.
 
 ```text
-CLI command = parse input + call core + print output
+CLI command = parse input + call core + print JSON output
 MCP tool    = validate input + call core + return structured result
 Remote MCP  = read request auth + validate input + call core
 Skill       = instructions for when/how to use CLI or MCP
@@ -312,7 +307,7 @@ Follow the explicit registration flow:
 
 1. Add input and output schemas in `packages/core/src/schemas.ts`.
 2. Add the operation function in `packages/core/src/operations.ts`.
-3. Export it through `packages/core/src/index.ts` when needed.
+3. Export it through `packages/core/src/index.ts`.
 4. Add a CLI command in `packages/cli/src/index.ts`.
 5. Add a local MCP tool in `packages/local-mcp/src/index.ts`.
 6. Add a remote MCP tool in `apps/remote-mcp/src/index.ts` when remote support is part of your project.
@@ -325,9 +320,9 @@ MessageSend intentionally keeps registration explicit. Do not introduce a shared
 
 MessageSend uses three credential paths because each interface has a different audience:
 
-- CLI reads a persisted local user config created by `messagesend init`.
-- Local MCP reads environment variables provided by the MCP client.
-- Remote MCP reads the per-request Telegram bot token from the MCP URL path.
+- **CLI** reads a persisted local user config created by `messagesend init`, or falls back to `TELEGRAM_BOT_TOKEN` environment variable.
+- **Local MCP** reads `TELEGRAM_BOT_TOKEN` from the environment variables provided by the MCP client.
+- **Remote MCP** reads the per-request Telegram bot token from the MCP URL path (`/:botToken/mcp`).
 
 For your own project, keep credentials out of MCP tool input schemas unless the credential is genuinely part of the operation payload.
 
@@ -346,7 +341,6 @@ Run the CLI from source:
 ```bash
 bun run dev:cli init --telegram-bot-token "<bot-token>"
 bun run dev:cli telegram "<chat-id>" "Hello from MessageSend"
-bun run dev:cli telegram "<chat-id>" "Hello from MessageSend" --json
 ```
 
 Start the local MCP stdio server from source:
@@ -355,9 +349,9 @@ Start the local MCP stdio server from source:
 TELEGRAM_BOT_TOKEN="<bot-token>" bun run dev:local-mcp
 ```
 
-Expected behavior: the process stays open and waits for MCP messages over stdio. Stop it with `Ctrl-C` when testing manually.
+The process stays open and waits for MCP messages over stdio. Stop it with `Ctrl-C` when testing manually.
 
-Example MCP client config from the repository root:
+Example MCP client config pointing to the local source:
 
 ```json
 {
@@ -381,7 +375,7 @@ CLERK_SECRET_KEY="<secret-key>" \
 bun run dev:remote-mcp
 ```
 
-Expected behavior: the server listens on `PORT` or `3000` by default, exposes public protected resource metadata at `GET /.well-known/oauth-protected-resource/:botToken/mcp`, and protects `POST /:botToken/mcp` with Clerk OAuth.
+The server listens on `PORT` (default `3000`), exposes public protected resource metadata at `GET /.well-known/oauth-protected-resource/:botToken/mcp`, and protects `POST /:botToken/mcp` with Clerk OAuth.
 
 ### Local Linked Binary
 
@@ -393,21 +387,19 @@ bun link
 messagesend --help
 ```
 
-After linking the binary, these can be run from anywhere on the machine:
+After linking, these can be run from anywhere on the machine:
 
 ```bash
 messagesend init --telegram-bot-token "<bot-token>"
 messagesend telegram "<chat-id>" "Hello from MessageSend"
-messagesend telegram "<chat-id>" "Hello from MessageSend" --json
 ```
 
-To remove the local linked binary, run this from `packages/cli`:
+To remove the local linked binary:
 
 ```bash
+cd packages/cli
 bun unlink
 ```
-
-See `specs/CLI_LOCAL_LINK.md` for the local linking acceptance criteria.
 
 ### Verification Commands
 
@@ -418,14 +410,21 @@ bun install
 bun run format
 bun run lint
 bun run typecheck
+
 bun run dev:cli init --telegram-bot-token "<bot-token>"
 bun run dev:cli telegram "<chat-id>" "Hello from MessageSend"
-bun run dev:cli telegram "<chat-id>" "Hello from MessageSend" --json
+
 TELEGRAM_BOT_TOKEN="<bot-token>" bun run dev:local-mcp
 CLERK_PUBLISHABLE_KEY="<publishable-key>" CLERK_SECRET_KEY="<secret-key>" bun run dev:remote-mcp
 ```
 
-Manual remote verification should confirm the server fails clearly without Clerk env vars, the metadata route returns public Clerk protected resource metadata, missing or invalid `Authorization` returns `401` with `WWW-Authenticate`, valid Clerk OAuth reaches MCP initialization, and the remote `telegram` MCP tool calls `@noor-dev/messagesend-core` without exposing `botToken` in the tool input schema.
+Manual remote verification should confirm:
+
+- The server fails clearly without Clerk env vars (`CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`).
+- The metadata route (`GET /.well-known/oauth-protected-resource/:botToken/mcp`) returns Clerk protected resource metadata.
+- Missing or invalid `Authorization` header returns `401` with `WWW-Authenticate`.
+- Valid Clerk OAuth reaches MCP initialization.
+- The remote `telegram` MCP tool calls `@noor-dev/messagesend-core` without exposing `botToken` in the tool input schema.
 
 ## Architecture Details
 
@@ -439,37 +438,37 @@ flowchart TD
     SKILL["messagesend-skill<br/>(docs / instructions only)"] -.-> CORE
 ```
 
-`packages/core` owns reusable logic:
+**`packages/core`** owns reusable logic:
 
 - Zod schemas for shared inputs and outputs.
 - Operation functions such as `sendTelegramMessage`.
 - Type exports derived from schemas.
 - No CLI imports, MCP SDK imports, terminal output, prompts, or `process.exit`.
 
-`packages/cli` owns human and script usage:
+**`packages/cli`** owns human and script usage:
 
-- Defines `messagesend telegram <chatId> <message>`.
-- Parses command arguments with Commander.
+- Defines `messagesend telegram <chatId> <message>` via Commander.
+- Reads credentials from local config file or `TELEGRAM_BOT_TOKEN` env var.
 - Calls `@noor-dev/messagesend-core` functions.
-- Prints readable output by default.
-- Supports `--json` for scriptable and agent-readable output.
+- Prints JSON output to stdout.
 
-`packages/local-mcp` owns local MCP stdio usage:
+**`packages/local-mcp`** owns local MCP stdio usage:
 
-- Creates an MCP stdio server.
+- Creates an MCP stdio server using `@modelcontextprotocol/sdk`.
 - Registers a `telegram` tool backed by `@noor-dev/messagesend-core`.
-- Uses the shared Telegram message input schema.
-- Returns both `content` and `structuredContent`.
+- Reads the bot token from `TELEGRAM_BOT_TOKEN` environment variable.
+- Returns both `content` (text) and `structuredContent` (object).
 
-`apps/remote-mcp` owns remote MCP HTTP usage:
+**`apps/remote-mcp`** owns remote MCP HTTP usage:
 
-- Creates a Hono HTTP app exposing `/:botToken/mcp`, run by Bun in development.
-- Registers a `telegram` tool backed by `@noor-dev/messagesend-core`.
+- Creates a Hono HTTP app exposing `/:botToken/mcp`, run by Bun.
+- Protects the endpoint with Clerk OAuth authentication.
 - Reads the Telegram bot token from the URL path per request.
 - Keeps the token out of the MCP tool input schema.
-- Closes the per-request MCP server after handling the request.
+- Creates a per-request MCP server and closes it after handling the request.
+- Uses `@clerk/mcp-tools` for protected resource metadata generation.
 
-`skills/messagesend` owns agent instructions:
+**`skills/messagesend`** owns agent instructions (SKILL.md):
 
 - Prefers the MCP `telegram` tool when available.
 - Documents CLI fallback usage.
@@ -489,23 +488,52 @@ MCP tool:      telegram
 Skill usage:   telegram
 ```
 
-Telegram messages are sent through the Telegram Bot API. The CLI reads the bot token from local user config created by `messagesend init`. The local MCP server reads `TELEGRAM_BOT_TOKEN` from the MCP client-provided server environment. The remote MCP server reads the token from the per-request MCP URL path. All adapters pass the token into `@noor-dev/messagesend-core`; it is not exposed as an MCP tool argument.
+The operation sends a message through the [Telegram Bot API](https://core.telegram.org/bots/api#sendmessage):
+
+- **CLI**: reads the bot token from `~/.config/messagesend/config.json` (created by `messagesend init`) or `TELEGRAM_BOT_TOKEN` env var.
+- **Local MCP**: reads `TELEGRAM_BOT_TOKEN` from the MCP client-provided server environment.
+- **Remote MCP**: reads the token from the per-request MCP URL path (`/:botToken/mcp`).
+
+All adapters pass the token into `@noor-dev/messagesend-core`; it is not exposed as an MCP tool argument.
+
+### Schema
+
+The core package exports Zod schemas for validation:
+
+```typescript
+// Input (agent-facing, no bot token)
+telegramMessageInputSchema = { chatId: string, message: string }
+
+// Full options (internal, includes bot token)
+telegramMessageOptionsSchema = { chatId: string, message: string, botToken: string }
+
+// Telegram API request body
+telegramSendMessageRequestSchema = { chat_id: string, text: string }
+
+// Telegram API response
+telegramSendMessageResponseSchema = { ok: boolean, result?: { message_id: number }, description?: string }
+
+// Output
+telegramMessageOutputSchema = { ok: true, chatId: string, messageId: number }
+```
 
 ## Publish Packages To NPM
 
 This section is for MessageSend maintainers and fork authors publishing adapted packages. Normal users can skip it.
 
-`@noor-dev/messagesend-core` is the shared implementation package used by the CLI, MCP servers, and downstream programmatic consumers. Publish it from `packages/core`, not from the repository root.
+Three packages are published to npm:
 
-`@noor-dev/messagesend` is the published CLI package. It depends on the published core package, so publish core first whenever a release includes core changes.
+| Package                          | Path               |
+| -------------------------------- | ------------------ |
+| `@noor-dev/messagesend-core`     | `packages/core`    |
+| `@noor-dev/messagesend`          | `packages/cli`     |
+| `@noor-dev/messagesend-mcp`      | `packages/local-mcp` |
 
-`@noor-dev/messagesend-mcp` is the published local MCP stdio server package. It also depends on the published core package, so publish core first whenever a release includes core changes.
+Publish order matters: **core first**, then CLI and local MCP (which depend on core).
 
 ### Version Bumps
 
-npm versions are immutable. Before publishing, choose versions that have not already been published.
-
-If core changed, bump `packages/core/package.json` first:
+Before publishing, bump versions in `package.json`. If core changed, bump `packages/core/package.json` first:
 
 ```json
 {
@@ -514,11 +542,10 @@ If core changed, bump `packages/core/package.json` first:
 }
 ```
 
-Leave the CLI and local MCP dependency on core as `workspace:*`. `bun publish` resolves `workspace:*` to the bumped core version at publish time, so you never hand-edit dependency ranges or risk shipping a `workspace:*` range to npm.
+Leave the CLI and local MCP dependency on core as `workspace:*`. `bun publish` resolves `workspace:*` to the bumped core version at publish time, so you never hand-edit dependency ranges.
 
-If the CLI changed, bump `packages/cli/package.json` and keep the CLI's displayed version in `packages/cli/src/index.ts` in sync with it.
-
-If the local MCP server changed, bump `packages/local-mcp/package.json` and keep the MCP server version in `packages/local-mcp/src/index.ts` in sync with it.
+If the CLI changed, bump `packages/cli/package.json`.
+If the local MCP server changed, bump `packages/local-mcp/package.json`.
 
 After editing versions, refresh the lockfile from the repository root:
 
@@ -531,22 +558,29 @@ bun install
 Run the full workspace checks before publishing any package:
 
 ```bash
-bun run release:check
+bun run format:check
+bun run lint
+bun run typecheck
+bun run build:core
+bun run build:cli
+bun run build:local-mcp
 ```
 
-This script runs formatting checks, linting, typechecking, and all publishable package builds. Use `bun run build:core`, `bun run build:cli`, or `bun run build:local-mcp` when checking only one package build.
+Package builds run through `tsdown`, which produces native Node ESM output in `dist/`:
 
-Package builds run through `tsdown`, which produces native Node ESM output in `dist` for publishing while keeping source imports clean. `tsdown` requires Node.js 22.18.0 or newer at build time, but the emitted package output targets the supported Node runtime.
+```text
+dist/index.js
+dist/index.d.ts
+dist/index.js.map
+```
 
 ### Git Commit Timing
 
-Commit release preparation changes before running `bun publish`. The commit should include version bumps, lockfile updates, and documentation changes. Publishing from a committed state makes the npm package traceable to a specific repository revision and avoids publishing local edits that are not recorded in git.
+Commit release preparation changes before running `bun publish`. The commit should include version bumps, lockfile updates, and documentation changes. Publishing from a committed state makes the npm package traceable to a specific repository revision.
 
 After the publish succeeds, verify npm metadata and consider creating a git tag for the published version. If publishing fails before the package is accepted by npm, fix the issue, rerun the checks, and commit the fix before trying again. If npm accepts the publish but a later verification step fails, do not reuse the same version; bump to a new version for the next publish because npm versions are immutable.
 
 ### Publish Core
-
-Run the full publish workflow:
 
 ```bash
 cd packages/core
@@ -554,31 +588,21 @@ bun publish --dry-run
 bun publish
 ```
 
-`bun publish` runs the `prepublishOnly` build and reads `publishConfig.access` from `package.json`, so no separate build or `--access` flag is needed.
+`bun publish` runs the `prepublishOnly` build and reads `publishConfig.access` from `package.json`.
 
-The dry run should include `README.md`, `package.json`, and compiled files under `dist/`, including:
-
-```text
-dist/index.js
-dist/index.d.ts
-dist/index.js.map
-```
-
-The dry run should not include `src/`, `node_modules/`, or `tsconfig.build.json`.
-
-If npm asks for a one-time password, rerun only the publish command with the current authenticator code:
+If npm asks for a one-time password:
 
 ```bash
 bun publish --otp <code>
 ```
 
-If npm says you are not logged in, authenticate first. `bun publish` reuses the npm auth token from `~/.npmrc`:
+If npm says you are not logged in:
 
 ```bash
 npm login
 ```
 
-After publishing, verify the package metadata:
+After publishing, verify:
 
 ```bash
 npm view @noor-dev/messagesend-core version
@@ -586,9 +610,7 @@ npm view @noor-dev/messagesend-core version
 
 ### Publish CLI
 
-Publish the CLI only after the matching `@noor-dev/messagesend-core` version is already on npm, since `bun publish` resolves the `workspace:*` dependency to the current core version at publish time.
-
-Run the CLI publish workflow:
+Publish the CLI only after the matching `@noor-dev/messagesend-core` version is already on npm.
 
 ```bash
 cd packages/cli
@@ -596,31 +618,19 @@ bun publish --dry-run
 bun publish
 ```
 
-The dry run should include `README.md`, `package.json`, and compiled files under `dist/`, including:
-
-```text
-dist/index.js
-dist/index.d.ts
-dist/index.js.map
-```
-
-The dry run should not include `src/`, `node_modules/`, or `tsconfig.build.json`.
-
-After publishing, verify the package metadata and installed binary:
+After publishing, verify:
 
 ```bash
 npm view @noor-dev/messagesend version
 npm install -g @noor-dev/messagesend
 messagesend --help
-messagesend --version
+messagesend telegram "<chat-id>" "Hello from MessageSend"
 npm uninstall -g @noor-dev/messagesend
 ```
 
 ### Publish Local MCP
 
-Publish the local MCP package only after the matching `@noor-dev/messagesend-core` version is already on npm, since `bun publish` resolves the `workspace:*` dependency to the current core version at publish time.
-
-Run the local MCP publish workflow:
+Publish the local MCP package only after the matching `@noor-dev/messagesend-core` version is already on npm.
 
 ```bash
 cd packages/local-mcp
@@ -628,17 +638,7 @@ bun publish --dry-run
 bun publish
 ```
 
-The dry run should include `README.md`, `package.json`, and compiled files under `dist/`, including:
-
-```text
-dist/index.js
-dist/index.d.ts
-dist/index.js.map
-```
-
-The dry run should not include `src/`, `node_modules/`, or `tsconfig.build.json`.
-
-After publishing, verify the package metadata and installed binary:
+After publishing, verify:
 
 ```bash
 npm view @noor-dev/messagesend-mcp version
@@ -651,16 +651,14 @@ To manually verify runtime startup, run `TELEGRAM_BOT_TOKEN="<bot-token>" messag
 
 ## Troubleshooting
 
-If `bun --filter` cannot find a package, run `bun install` from the repository root and confirm the package name matches the workspace package name.
-
-If TypeScript cannot resolve workspace packages, confirm each package has `"type": "module"`, an `exports` entry, and a dependency that can resolve locally. Packages can keep `"workspace:*"` for internal dependencies; `bun publish` rewrites `workspace:*` to the concrete published version, so the manifest on npm never contains a workspace range.
-
-If the MCP server appears to hang, that is expected for stdio mode. It waits for MCP client messages until the process is stopped.
-
-If an MCP client cannot start the server, confirm the command is available on `PATH`, use `npx -y @noor-dev/messagesend-mcp`, or use an absolute path in local development config.
-
-If CLI output is difficult to parse in scripts, pass `--json` and parse stdout as JSON.
-
-If Telegram requests fail from the CLI, run `messagesend init` and confirm the bot can send messages to the target chat.
-
-If Telegram requests fail from MCP, confirm the MCP client config provides `TELEGRAM_BOT_TOKEN` in the server `environment`.
+| Problem | Solution |
+| ------- | -------- |
+| `bun --filter` cannot find a package | Run `bun install` from the repository root and confirm the package name matches the workspace package name. |
+| TypeScript cannot resolve workspace packages | Confirm each package has `"type": "module"`, an `exports` entry, and a dependency that can resolve locally. |
+| MCP server appears to hang | That is expected for stdio mode. It waits for MCP client messages until the process is stopped. |
+| MCP client cannot start the server | Confirm the command is available on `PATH`, use `npx -y @noor-dev/messagesend-mcp`, or use an absolute path in local development config. |
+| CLI output is difficult to parse in scripts | The CLI always outputs JSON to stdout — parse it directly. |
+| Telegram requests fail from the CLI | Run `messagesend init` and confirm the bot can send messages to the target chat. Check that the bot token is valid. |
+| Telegram requests fail from MCP | Confirm the MCP client config provides `TELEGRAM_BOT_TOKEN` in the server `environment`. |
+| Remote MCP returns 401 | Ensure Clerk OAuth is set up correctly and the client is passing a valid Bearer token. |
+| Remote MCP fails to start | Ensure both `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` environment variables are set. |

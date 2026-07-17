@@ -1,10 +1,44 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+build/
+*.tsbuildinfo
+
+# Environment files
 .env
 .env.*
 !.env.example
-.DS_Store
-*.log
 
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Editor & IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Runtime
+bun.lockb
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Turbo cache
+.turbo/
+
+# Cache
+.cache/
+
+# Project-specific
 .mcp.json
 opencode.json
