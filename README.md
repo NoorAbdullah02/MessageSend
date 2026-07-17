@@ -9,18 +9,18 @@
 </p>
 
 <p align="center">
-  by <a href="https://x.com/codewithantonio">@codewithantonio</a>
+  by <a href="https://x.com/noorabdullah">@noorabdullah</a>
 </p>
 
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license" /></a>
   <a href="https://www.npmjs.com/package/@noor-dev/messagesend"><img src="https://img.shields.io/npm/dw/@noor-dev/messagesend?label=downloads" alt="Weekly downloads" /></a>
-  <a href="https://github.com/code-with-antonio/messagesend"><img src="https://img.shields.io/github/stars/code-with-antonio/messagesend?style=social" alt="GitHub stars" /></a>
+  <a href="https://github.com/NoorAbdullah02/MessageSend"><img src="https://img.shields.io/github/stars/NoorAbdullah02/MessageSend?style=social" alt="GitHub stars" /></a>
   <a href="https://cwa.run/railway"><img src="https://img.shields.io/badge/Railway-deploy-0B0D0E?logo=railway&logoColor=white" alt="Railway" /></a>
   <a href="https://cwa.run/clerk"><img src="https://img.shields.io/badge/Clerk-auth-6C47FF?logo=clerk&logoColor=white" alt="Clerk" /></a>
 </p>
 
-> **Prompt:** "Send Antonio a Telegram message saying the build shipped."
+> **Prompt:** "Send Noor a Telegram message saying the build shipped."
 >
 > **Agent:** Uses MessageSend's `telegram` MCP tool with `{ "chatId": "...", "message": "The build shipped." }`, backed by the same core operation available from the CLI and Skill.
 
@@ -194,7 +194,7 @@ Do not include Telegram bot tokens in MCP tool arguments. The local MCP server r
 Install the MessageSend Skill with your skill manager:
 
 ```bash
-npx skills add https://github.com/code-with-antonio/messagesend/tree/main/skills/messagesend
+npx skills add https://github.com/NoorAbdullah02/MessageSend/tree/main/skills/messagesend
 ```
 
 The Skill tells agents when to use the MCP `telegram` tool, when to fall back to the CLI, why `--json` matters for parsing, and why `@noor-dev/messagesend-core` is only an implementation detail.
